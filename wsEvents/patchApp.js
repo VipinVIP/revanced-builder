@@ -8,6 +8,7 @@ const exec = require('../utils/promisifiedExec.js');
 const mountReVanced = require('../utils/mountReVanced.js');
 
 const killProcess = require('kill-process-by-name');
+const { log } = require('node:console');
 
 /**
  * @param {import('ws').WebSocket} ws
@@ -154,15 +155,16 @@ module.exports = async function patchApp(ws) {
   const args = [
     '-jar',
     global.jarNames.cli,
+    'patch',
     '-b',
     global.jarNames.patchesJar,
-    '-t',
+    '-m',
+    global.jarNames.integrations,
+    '-r',
     './revanced-cache',
-    '--experimental',
-    '-a',
-    `${join(global.revancedDir, global.jarNames.selectedApp.packageName)}.apk`,
-    '-o',
-    join(global.revancedDir, 'revanced.apk')
+    '--out',
+    join(global.revancedDir, 'revanced.apk'),
+    `${join(global.revancedDir, global.jarNames.selectedApp.packageName)}.apk`
   ];
 
   if (process.platform === 'android') {
@@ -170,13 +172,12 @@ module.exports = async function patchApp(ws) {
     args.push(join(global.revancedDir, 'aapt2'));
   }
 
-  if (global.jarNames.patch.integrations) {
-    args.push('-m');
-    args.push(global.jarNames.integrations);
-  }
+  // if (global.jarNames.patch.integrations) {
+  //   args.push('-m');
+  //   args.push(global.jarNames.integrations);
+  // }
 
   args.push(...global.jarNames.patches.split(' '));
-
   const buildProcess = spawn(global.javaCmd, args);
 
   buildProcess.stdout.on('data', async (data) => {
@@ -186,8 +187,7 @@ module.exports = async function patchApp(ws) {
         log: data.toString()
       })
     );
-
-    if (data.toString().includes('Finished')) await afterBuild(ws);
+    //if (data.toString().includes('Finished')) await afterBuild(ws);
 
     if (data.toString().includes('INSTALL_FAILED_UPDATE_INCOMPATIBLE')) {
       await reinstallReVanced(ws);
@@ -205,7 +205,7 @@ module.exports = async function patchApp(ws) {
       })
     );
 
-    if (data.toString().includes('Finished')) await afterBuild(ws);
+    // if (data.toString().includes('Finished')) await afterBuild(ws);
 
     if (data.toString().includes('INSTALL_FAILED_UPDATE_INCOMPATIBLE')) {
       await reinstallReVanced(ws);
@@ -213,5 +213,24 @@ module.exports = async function patchApp(ws) {
     }
 
     if (data.toString().includes('Unmatched')) reportSys(args, ws);
+  });
+
+  buildProcess.on('close', async (code) => {
+    if (code == 0) {
+      ws.send(
+        JSON.stringify({
+          event: 'patchLog',
+          log: 'Finished'
+        })
+      );
+      await afterBuild(ws);
+    } else {
+      ws.send(
+        JSON.stringify({
+          event: 'patchLog',
+          log: ` process exited with code ${code}`
+        })
+      );
+    }
   });
 };
