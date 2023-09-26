@@ -158,6 +158,8 @@ module.exports = async function patchApp(ws) {
     'patch',
     '-b',
     global.jarNames.patchesJar,
+    '-m',
+    global.jarNames.integrations,
     '-r',
     './revanced-cache',
     '--out',
@@ -170,14 +172,12 @@ module.exports = async function patchApp(ws) {
     args.push(join(global.revancedDir, 'aapt2'));
   }
 
-  if (global.jarNames.patch.integrations) {
-    args.push('-m');
-    args.push(global.jarNames.integrations);
-  }
+  // if (global.jarNames.patch.integrations) {
+  //   args.push('-m');
+  //   args.push(global.jarNames.integrations);
+  // }
 
   args.push(...global.jarNames.patches.split(' '));
-  console.log(global.javaCmd);
-  console.log(args);
   const buildProcess = spawn(global.javaCmd, args);
 
   buildProcess.stdout.on('data', async (data) => {
@@ -187,34 +187,14 @@ module.exports = async function patchApp(ws) {
         log: data.toString()
       })
     );
-
-    buildProcess.on('close', async (code) => {
-      if (code == 0) {
-        ws.send(
-          JSON.stringify({
-            event: 'patchLog',
-            log: 'Finished'
-          })
-        );
-        await afterBuild(ws);
-      } else {
-        ws.send(
-          JSON.stringify({
-            event: 'patchLog',
-            log: ` process exited with code ${code}`
-          })
-        );
-      }
-    });
-
     //if (data.toString().includes('Finished')) await afterBuild(ws);
 
-    //   if (data.toString().includes('INSTALL_FAILED_UPDATE_INCOMPATIBLE')) {
-    //     await reinstallReVanced(ws);
-    //     await afterBuild(ws);
-    //   }
+    if (data.toString().includes('INSTALL_FAILED_UPDATE_INCOMPATIBLE')) {
+      await reinstallReVanced(ws);
+      await afterBuild(ws);
+    }
 
-    //   if (data.toString().includes('Unmatched')) reportSys(args, ws);
+    if (data.toString().includes('Unmatched')) reportSys(args, ws);
   });
 
   buildProcess.stderr.on('data', async (data) => {
@@ -227,11 +207,30 @@ module.exports = async function patchApp(ws) {
 
     // if (data.toString().includes('Finished')) await afterBuild(ws);
 
-    // if (data.toString().includes('INSTALL_FAILED_UPDATE_INCOMPATIBLE')) {
-    //   await reinstallReVanced(ws);
-    //   await afterBuild(ws);
-    // }
+    if (data.toString().includes('INSTALL_FAILED_UPDATE_INCOMPATIBLE')) {
+      await reinstallReVanced(ws);
+      await afterBuild(ws);
+    }
 
-    // if (data.toString().includes('Unmatched')) reportSys(args, ws);
+    if (data.toString().includes('Unmatched')) reportSys(args, ws);
+  });
+
+  buildProcess.on('close', async (code) => {
+    if (code == 0) {
+      ws.send(
+        JSON.stringify({
+          event: 'patchLog',
+          log: 'Finished'
+        })
+      );
+      await afterBuild(ws);
+    } else {
+      ws.send(
+        JSON.stringify({
+          event: 'patchLog',
+          log: ` process exited with code ${code}`
+        })
+      );
+    }
   });
 };
