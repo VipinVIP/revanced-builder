@@ -7,7 +7,7 @@ const currentVersion = 'v3.9.5';
  */
 module.exports = async function checkForUpdates(ws) {
   const builderVersion = (
-    await getDownloadLink({ owner: 'reisxd', repo: 'revanced-builder' })
+    await getDownloadLink({ owner: 'VipinVIP', repo: 'revanced-builder' })
   ).version;
 
   if (builderVersion !== currentVersion)
